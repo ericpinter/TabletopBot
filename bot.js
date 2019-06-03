@@ -10,7 +10,6 @@ var repeatRecursion=0;
 var unwrapped='';
 var defurled='';
 var contents = fs.readFileSync('grammar.ohm');
-//var engine = require("./grammarjs");
 var g = ohm.grammar(contents);
 var semantics = g.createSemantics();
 
@@ -229,7 +228,7 @@ const mwStart = "https://www.myth-weavers.com/api/v1/sheets/sheets/";
 
 class Player{
   constructor(v,cc){
-    console.log("constructing ");
+    //console.log("constructing ");
     this.vars=v;
     this.currentChar=cc;
   }
@@ -313,7 +312,7 @@ client.on('message', (message) => {
 
           var name = sd["name"];
           console.log(`Porting new char ${name}`);
-          console.log(`user=${user}`;
+          console.log(`user=${user}`);
           user.newChar(name);
           user.varSet("$character",'"'+name+'"');
           ///devolve any responsibility of specific character attributes beyond name to game-specific handlers
@@ -489,7 +488,7 @@ client.on('message', (message) => {
 );
 client.login(config.token);
 loadState();
-console.log(cmdList);
+//console.log(cmdList);
 
 function saveState(){
   var fs = require('fs');
@@ -537,7 +536,7 @@ function handle_35e(player, jData,jKeys){
     let key = jKeys[x];
 
     if (new RegExp("^Skill([0-9]{2})$").test(key)){
-      player.varSet("$"+(jData[key]).replace(/\s/g,""),`1d20${jData[key+"Mod"]}`);
+      player.varSet("$"+(jData[key]).replace(/\s/g,""),`1d20${intfmt(jData[key+"Mod"])}`);
     }
   }
   player.varSet("$reflex",`1d20${intfmt(jData["Reflex"])}`);
@@ -558,7 +557,7 @@ function handle_sf(player,jData,jKeys){
     if (new RegExp("^skill_([0-9]+)_name$").test(key)){
       var sn = key.substring(0,key.length-5);//without _name
       player.varSet("$"+(jData[key]).replace(/\s/g,""),
-      `1d20${intfmt(jData[sn+"_skill_mod"]}`);
+      `1d20${intfmt(jData[sn+"_skill_mod"])}`);
     }
   }
 
@@ -577,34 +576,34 @@ function handle_sf(player,jData,jKeys){
 function size_dict(d){c=0; for (i in d) ++c; return c}
 
 function cmdListUnwrap(){
-  console.log(cmdList);
+  //console.log(cmdList);
   var full = {}
   for (var uid in cmdList){
     var us = {}
-    console.log("[uid] "+cmdList[uid]);
+    //console.log("[uid] "+cmdList[uid]);
     us["currentChar"]=cmdList[uid].currentChar;
     us["vars"]=cmdList[uid].vars;
     full[uid]=us;
   }
-  console.log(full);
+  //console.log(full);
   return full;
 }
 function rewrapcmdList(list){
-  console.log("reoconstructing from ");
-  console.log(list);
+  //console.log("reoconstructing from ");
+  //console.log(list);
   var full = {}
   for (var uid in list){
-    console.log("doing "+uid);
+    //console.log("doing "+uid);
     var va = list[uid]["vars"];
-    console.log(va);
+    //console.log(va);
     var cc = list[uid]["currentChar"];
-    console.log(cc);
+    //console.log(cc);
     var p = new Player(va,cc);
-    console.log("passed");
+    //console.log("passed");
     full[uid]=p;
   }
-  console.log("reconstructed");
-  console.log(full);
+  //console.log("reconstructed");
+  //console.log(full);
   cmdList=full;
 
 }
