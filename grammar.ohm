@@ -1,0 +1,69 @@
+Arithmetic {
+  Exp
+    = BackEq
+
+  BackEq
+   = AddExp "=" VarEq --backEq
+   | AddExp
+
+  AddExp
+    = AddExp "+" MulExp  -- plus
+    | AddExp "-" MulExp  -- minus
+    | String "+" AddExp --strApp
+    //| AddExp "+" String --strFwd
+    | MulExp
+
+  MulExp
+    = MulExp "*" ExpExp  -- times
+    | MulExp "/" ExpExp  -- divide
+    | ExpExp
+
+  ExpExp
+    = PriExp "^" ExpExp  -- power
+    | FrontEq
+
+  FrontEq
+    = VarEq "=" TextExp --frontEq
+    | Roll
+
+  Roll
+    = Number "d" Number "k" Number --keep
+    | Number "d" Number --norm
+    | "d" Number --shortnorm
+    | RepeatRoll
+    | PriExp
+
+    PriExp
+    = "(" Exp ")"  -- paren
+    | "+" PriExp   -- pos
+    | "-" PriExp   -- neg
+    | Var
+    | String
+    | LoneNumber
+
+  RepeatRoll
+    = "r" "(" Exp "," Number ")"
+
+  TextExp
+    = Exp
+  VarEq
+    = Var
+  Var
+    = "$" ident
+
+  String
+    = "\"" (~"\"" any)* "\""
+
+  ident  (an identifier)
+    =   ichar+
+
+  ichar
+    = letter | "(" | ")" | "_"
+
+  Number  (a Number)
+    = digit* "." digit*  -- fract
+    | digit+             -- whole
+
+  LoneNumber
+    = Number
+}
