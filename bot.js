@@ -228,13 +228,13 @@ const mwStart = "https://www.myth-weavers.com/api/v1/sheets/sheets/";
 
 class Player{
   constructor(v,cc){
-    //console.log("constructing ");
     this.vars=v;
     this.currentChar=cc;
   }
   newChar(name){
     name = name.toLowerCase();
     this.vars[name]={};
+    this.vars[name]["$character"]=name;
     this.currentChar=name;
     saveState();
   }
@@ -251,14 +251,17 @@ class Player{
       message.channel.send("You have no defined terms");
       return;
     }
-    //else
-    message.channel.send(`Here are your defined terms ${Object.keys(this.vars[this.currentChar])}`);
+    else message.channel.send(`Here are your defined terms ${Object.keys(this.vars[this.currentChar])}`);
   }
 
   varRemove(name){
     name=name.toLowerCase().trim();
     delete this.vars[this.currentChar][name];
     saveState();
+  }
+
+  varExists(name){
+    return !((typeof this.vars[this.currentChar][name])==="undefined");
   }
 
   varAc(name){
@@ -285,17 +288,17 @@ client.on('error', () => {
 client.on('message', (message) => {
 
   try{
-    var author = message.author
-    var messageText=message.content.trim();;
+    var author = message.author;
+    var messageText=message.content.trim();
     if (!messageText.startsWith(config.prefix) || author.bot) return;
 
     currentUser=message.author.id;
     var user = cmdList[currentUser];
-    console.log("user is player " + user instanceof Player);
+    console.log(`user is player ${user instanceof Player}`);
     if (typeof(user) === "undefined") {user = cmdList[currentUser] = new Player({},undefined);}
 
     const args = messageText.trim().split(/ +/g);
-    const cmd = args.shift().toLowerCase().substring(1);
+    const cmd = args.shift().toLowerCase().substring(1).trim();
 
     if (cmd==="port") {
       var cn = args.shift();
@@ -340,150 +343,142 @@ client.on('message', (message) => {
       user.newChar(name);
       message.channel.send("Created a character named "+name);
     }else if (cmd==="h"||cmd==="help"){
-      message.channel.send(`
-        ![h/help] you should know what this does
-        ![listchar/listchars] will list the valid characters you have defined
-        ![char] [name] will create a blank character
-        ![delchar] [name] will remove said character
-        ![switch] [name] switch to the given characters
-        ![port] [id] will port an entire mythweavers sheet (or at least the important stuff) given the number at the end of the url
-
-        ![a/assign] $[varname] [expression] will assign a variable. Note that variables *can* be used in expressions
-        ![l/list] lists your personal arguments
-        ![rename] $[varname] $[varname] deletes the first var and puts its value in the second
-        ![r/roll] [expression] will return the result of that roll
-        ![re/rollexplicit] [expression] will act like a roll, but tell you the intermediate values
-        ![v/value] $[varname] will print what the roll system thinks of a variable as
-        ![c/clear] $[varname] will delete a variable
-        ![a/assign] $[varname] [expression] will assign the variable to that expression (and recompute that expression every time the variable is resolved)
-        ![ic/incharacter] [text] will make this bot print the text in a way that shows your character said it. If you have a discord emote which has the same name as your $character variable, it will include that icon.
-        Valid expressions are combinations of basic Arithmetic operations, numbers, rolls (e.g. 3d6), and variables
-        Cool roll expressions include $[varname],  [x]d[y]k[z] (e.g. 4d6k3), the repeat block r([expression],[number]) which will quit after your call invokes more than 100 repeats, and inline var assignment (e.g $x=d20+2 or $x=$y). If a variable takes more than 40 variable resolves before it itself resolves, any further nested variables are treated as 1
-        Note: the expression "$x = d20" will reroll that value each time $x is used, but "d20 = $x" will store the result of that roll and not recalculate. They can also be used in larger expressions (e.g. "d20 + $health = d6)."`);
+      message.channel.send(`![h/help] you should know what this does\n![listchar/listchars] will list the valid characters you have defined\n![char] [name] will create a blank character\n![delchar] [name] will remove said character\n![switch] [name] switch to the given characters\n![port] [id] will port an entire mythweavers sheet (or at least the important stuff) given the number at the end of the url\n`);
+      message.channel.send(`![a/assign] $[varname] [expression] will assign a variable. Note that variables *can* be used inexpressions\n![l/list] lists the variables your current character has\n![rename] $[varname] $[varname] deletes the first var and puts its value in the second\n![r/roll] [expression] will return the result of that roll\n![re/rollexplicit] [expression] will act like a roll, but tell you the intermediate values\n![v/value] $[varname] will print what the roll system thinks of a variable as\n![c/clear] $[varname] will delete a variable\n![a/assign] $[varname] [expression] will assign the variable to that expression (and recompute that expression every time the variable is resolved)\n`);
+      message.channel.send(`![ic/incharacter] [text] will make this bot print the text in a way that shows your character said it. If you have a discord emote which has the same name as your $character variable, it will include that icon.\nValid expressions are combinations of basic Arithmetic operations, numbers, rolls (e.g. 3d6), and variables\nCool roll expressions include $[varname], [x]d[y]k[z] (e.g. 4d6k3), the repeat block\nr([expression],[number])which will quit after your call invokes more than 100 repeats, and inline var assignment (e.g $x=d20+2 or $x=$y). If a variable takes more than 40 variable resolves before it itself resolves, any further nested variables are treated as 1\nNote: the expression \"$x = d20\" will reroll that value each time $x is used, but \"d20 = $x\" will store the result of that roll and not recalculate. They can also be used in larger expressions (e.g. \"d20 + $health = d6\").`);
+    }
+    else if (cmd==="listchar"||cmd==="listchars"||cmd==="charlist"){
+      if (size_dict(user.vars) ==0)  message.channel.send("You don't seem to have any characters");
+      else {
+        var out = "You have the following characters defined:";
+        for (char in user.vars){
+          out+=`\n${char}`;
+        }
+        if (!typeof(user.currentChar) === "undefined"){out+=`\nYou are currently ${user.currentChar}`;}
+        message.channel.send(out);
       }
-      else if (cmd==="listchar"||cmd==="listchars"||cmd==="charlist"){
-        if (size_dict(user.vars) ==0)  message.channel.send("You don't seem to have any characters");
+    }
+
+    else if (typeof(user.currentChar) === "undefined") {message.channel.send("It seems that you're trying to use the bot without any defined characters! Port one from MW with 'port' or create a blank one with 'char'");return;}
+
+    else if (cmd==="switch"){
+      var name = args.join(' ').toLowerCase();
+      if (name in user.vars) {
+        user.currentChar = name;
+        message.channel.send("Switched to "+name);
+      }else{
+        message.channel.send("That character doesn't exist");
+      }
+
+    } else if (cmd==="delchar"){
+      var name = args.join(' ').toLowerCase();
+      if (name in user.vars) {
+        delete user.vars[name];
+        saveState();
+        if (size_dict(user.vars) == 0 || user.currentChar == name) {delete user.currentChar; message.channel.send("Successfully deleted! Please create or switch to a valid character");}
+        else message.channel.send("Successfully deleted that other character");
+      }else {message.channel.send("That Character doesn't seem to exist");}
+
+    } else if (cmd==="rename"){
+      var orig=args.shift();
+      var ne=args.shift();
+      if (!orig.startsWith("$")||!ne.startsWith("$")) {message.channel.send("Please start both varnames with $"); return;}
+
+      user.varSet(ne, user.varAc(orig));
+      user.varRemove(orig);
+      message.channel.send("Updated");
+    } else if (cmd==="l"||cmd==="list"){
+      user.list(message);
+    } else if (cmd==="i"||cmd==="ic"||cmd==="incharacter"){
+      message.delete(0);
+      var out;
+      var outemoji;
+
+//      try{
+        var match =g.match("$character");
+        if (match.succeeded() && user.varExists("$character")) out = semantics(match).eval();
+        else out = message.member.nickname;
+
+        var eq = function(emoji){
+          return emoji.name===out;
+        }
+
+        if (client.emojis.some(eq)){
+          outemoji = client.emojis.find(emoji => emoji.name === out);
+        }
         else {
-          var out = "You have the following characters defined:";
-          for (char in user.vars){
-            out+=`\n${char}`;
-          }
-          if (!typeof(user.currentChar) === "undefined"){out+=`\nYou are currently ${user.currentChar}`;}
-          message.channel.send(out);
+          out=message.member.nickname;
+          outemoji="💩";
         }
-      }
+        console.log("out = "+ out);
+        console.log("outem = "+outemoji);
+      //} catch(e){out=message.member.nickname;outemoji="💩";console.log("missing emoji!");console.log(e);}
 
-      else if (typeof(user.currentChar) === "undefined") {message.channel.send("It seems that you're trying to use the bot without any defined characters! Port one from MW with 'port' or create a blank one with 'char'");return;}
+      //try{
+        var color;
+        var cmatch =g.match("$color");
+        if (cmatch.succeeded()&&user.varExists("$color")) {color = semantics(cmatch).eval();}
+        else color="RANDOM";
+      //}catch(e){color="RANDOM";}
 
-      else if (cmd==="switch"){
-        var name = args.join(' ').toLowerCase();
-        if (name in user.vars) {
-          user.currentChar = name;
-          message.channel.send("Switched to "+name);
-        }else{
-          message.channel.send("That character doesn't exist");
-        }
+      var richEm = new Discord.RichEmbed();
+      richEm.addField(`${outemoji} (${out}) says:`,messageText.slice(messageText.indexOf(" ")),true);
+      richEm.setColor(color.toUpperCase());
+      message.channel.send("",{embed:richEm});
 
-      } else if (cmd==="delchar"){
-        var name = args.join(' ').toLowerCase();
-        if (name in user.vars) {
-          delete user.vars[name];
+    } else if (cmd==="value"||cmd==="v"){
+      var v = args.shift();
+      message.channel.send(v+" : "+user.varAc(v));
+    } else if (cmd==="c"||cmd==="clear"){
+      var next = args.shift()
+      if (typeof(next)!="undefined"){
+        next=next.toLowerCase();
+        if (next in user.vars[user.currentChar]){
+          user.varRemove(next);
+          message.channel.send(`Your variable ${next} has been cleared`)
           saveState();
-          if (size_dict(user.vars) ==0 || user.currentChar == name) {delete user.currentChar; message.channel.send("Successfully deleted! Please create or switch to a valid character");}
-          else message.channel.send("Successfully deleted that other character");
-        }else {message.channel.send("That Character doesn't seem to exist");}
-
-      } else if (cmd==="rename"){
-        var orig=args.shift();
-        var ne=args.shift();
-        if (!orig.startsWith("$")||!ne.startsWith("$")) {message.channel.send("Please start both varnames with $"); return;}
-
-        user.varSet(ne, user.varAc(orig));
-        user.varRemove(orig);
-        message.channel.send("Updated");
-      } else if (cmd==="l"||cmd==="list"){
-        user.list(message);
-      } else if (cmd==="i"||cmd==="ic"||cmd==="incharacter"){
-        message.delete(10);//delete the msg with 10ms delay
-
-        try{
-          var match =g.match("$character");
-          if (match.failed()) throw Error;
-          var out = semantics(match).eval();
-          console.log("out= "+ out);
-          var outemoji = client.emojis.find(emoji => emoji.name === out);
-          console.log("outem"+outemoji);
-          if (outemoji===null) outemoji="💩";
-          console.log(`emoji type ${typeof outemoji} is null ${outemoji===null}`);
-          if ((typeof outemoji)==="undefined"){throw "Use Alias";}
+          return;
         }
-        catch(e){out=message.member.nickname;outemoji="💩";console.log("missing emoji!");console.log(e);}
-
-        try{
-          var color;
-          var cmatch =g.match("$color");
-          if (cmatch.succeeded()) {color = semantics(cmatch).eval();}
-        }
-        catch(e){color="RANDOM";}
-
-        var richEm = new Discord.RichEmbed();
-        richEm.addField(`${outemoji} (${out}) says:`,messageText.slice(messageText.indexOf(" ")),true);
-        richEm.setColor(color.toUpperCase());
-        message.channel.send("",{embed:richEm});
-
-      } else if (cmd==="value"||cmd==="v"){
-        var v = args.shift();
-        message.channel.send(v+" : "+user.varAc(v));
-      } else if (cmd==="c"||cmd==="clear"){
-        var next = args.shift()
-        if (typeof(next)!="undefined"){
-          next=next.toLowerCase();
-          if (next in user.vars[user.currentChar]){
-            user.varRemove(next);
-            message.channel.send(`Your variable ${next} has been cleared`)
-            saveState();
-            return;
-          }
-          else if (!(next==="confirm")){message.channel.send("If you're trying to clear me, type confirm after the clear");return;}
-          user.vars[user.currentChar]={};
-          message.channel.send("Your (and only your) commands have been cleared");
-          saveState();
-        }
-        else {message.channel.send("If you're trying to clear me, type confirm after the clear");}
-      }else if (cmd==="r"||cmd==="roll"){
-        var exp=args.join(' ');
-        var out = roll(exp);
-        message.channel.send(out,
-          {
-            code:true,
-            reply:currentUser
-          }
-        );
+        else if (!(next==="confirm")){message.channel.send("If you're trying to clear me, type confirm after the clear");return;}
+        user.vars[user.currentChar]={};
+        message.channel.send("Your (and only your) commands have been cleared");
+        saveState();
       }
-      else if (cmd==="re"||cmd==="rollexplicit"){
-        var exp=args.join(' ');
-        var [uw,df,out] = roll_explicit(exp);
-
-        message.channel.send(`(${uw.trim()}) => (${df.trim()}) = ${out}`,
+      else {message.channel.send("If you're trying to clear me, type confirm after the clear");}
+    }else if (cmd==="r"||cmd==="roll"){
+      var exp=args.join(' ');
+      var out = roll(exp);
+      message.channel.send(out,
         {
           code:true,
           reply:currentUser
         }
       );
-    } else if (messageText.startsWith("a")||messageText.startsWith("assign")){
-      var v=args.shift();
-      if (! (new RegExp("[a-z]+").test(v))){message.channel.send("start your varnames with $, only containing letters"); return; }
-      var exp=args.join(' ');
-
-      var match =g.match(exp);
-      if (match.succeeded()) {user.varSet(v,exp); message.channel.send("Assigned!"); }
-      else message.channel.send("Invaild expression");
     }
-  }
+    else if (cmd==="re"||cmd==="rollexplicit"){
+      var exp=args.join(' ');
+      var [uw,df,out] = roll_explicit(exp);
 
-  catch(e){
-    console.log(e);
+      message.channel.send(`(${uw.trim()}) => (${df.trim()}) = ${out}`,
+      {
+        code:true,
+        reply:currentUser
+      }
+    );
+  } else if (messageText.startsWith("a")||messageText.startsWith("assign")){
+    var v=args.shift();
+    if (! (new RegExp("[a-z]+").test(v))){message.channel.send("start your varnames with $, only containing letters"); return; }
+    var exp=args.join(' ');
+
+    var match =g.match(exp);
+    if (match.succeeded()) {user.varSet(v,exp); message.channel.send("Assigned!"); }
+    else message.channel.send("Invaild expression");
   }
+}
+
+catch(e){
+  console.log(e);
+}
 }
 );
 client.login(config.token);
@@ -528,7 +523,7 @@ function roll_explicit(exp){
 
 ///changes 3 to "+3" and -2 to "-2"
 function intfmt(int){
-  return (jData["Init"]>=0?"+":"")+jData["Init"];
+  return (int>=0?"+":"")+int;
 }
 
 function handle_35e(player, jData,jKeys){
