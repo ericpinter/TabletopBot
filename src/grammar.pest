@@ -1,0 +1,58 @@
+Arithmetic = {SOI ~ (!TextExp ~ Exp|TextExp) ~ EOI }
+
+Exp = {
+    FrontEq |
+	BackEq |
+	MathExp
+}
+
+TextExp = {
+	   TextBasic ~ (add ~ TextBasic)*
+}
+
+TextBasic = {
+       MathExp |
+       String |
+       Repeat
+       }
+
+String = {"\"" ~ (!"\"" ~ ANY)* ~ "\"" }
+Repeat = { "repeat" ~ "(" ~ TextExp ~ "," ~ Number ~ ")"  }
+
+BackEq = {MathExp~"="~Var}
+MathExp = {
+        PriExp ~ (Operation ~ PriExp)*
+}
+
+Operation = _{ add | subtract | multiply | divide | power }
+    add      = { "+" }
+    subtract = { "-" }
+    multiply = { "*" }
+    divide   = { "/" }
+    power    = { "^" }
+
+PriExp = {"("~Exp~")"|
+		"+" ~ Exp |
+		Negate |
+        Roll |
+        Number
+}
+Negate = {"-" ~ Exp}
+
+FrontEq = {Var~"="~Exp}
+
+Number = @{ASCII_DIGIT+| ASCII_DIGIT+? ~"." ~ ASCII_DIGIT+}
+
+Roll = {
+	Keep |
+    Norm |
+    Shortnorm|
+    Var
+}
+Keep = {Number ~ "d" ~ Number ~ "k" ~ Number}
+Norm = {Number ~ "d" ~ Number}
+Shortnorm = {"d" ~ Number }
+
+Var = @{ "$" ~ identChar+ }
+identChar = _{ ASCII_ALPHANUMERIC | "_" | "(" | ")" }
+WHITESPACE = _{ " " }	
