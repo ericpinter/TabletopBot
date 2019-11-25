@@ -1,9 +1,9 @@
-Arithmetic = {SOI ~ (!TextExp ~ Exp|TextExp) ~ EOI }
+Arithmetic = {SOI ~ (!(TextExp~EOI) ~ Exp|TextExp) ~ EOI }
 
 Exp = {
     FrontEq |
 	BackEq |
-	MathExp
+    MathExp
 }
 
 TextExp = {
@@ -11,17 +11,19 @@ TextExp = {
 }
 
 TextBasic = {
-       MathExp |
-       String |
-       Repeat
-       }
+    MathExp |
+    String |
+    Repeat
+}
 
 String = {"\"" ~ (!"\"" ~ ANY)* ~ "\"" }
 Repeat = { "repeat" ~ "(" ~ TextExp ~ "," ~ Number ~ ")"  }
 
-BackEq = {MathExp~"="~Var}
+BackEq = { MathExp ~ "=" ~ Var }
+FrontEq = {Var ~ "=" ~ Exp}
+
 MathExp = {
-        PriExp ~ (Operation ~ PriExp)*
+    PriExp ~ (Operation ~ PriExp)*
 }
 
 Operation = _{ add | subtract | multiply | divide | power }
@@ -32,14 +34,12 @@ Operation = _{ add | subtract | multiply | divide | power }
     power    = { "^" }
 
 PriExp = {"("~Exp~")"|
-		"+" ~ Exp |
-		Negate |
-        Roll |
-        Number
+    "+" ~ Exp |
+	Negate |
+    Roll |
+    Number
 }
 Negate = {"-" ~ Exp}
-
-FrontEq = {Var~"="~Exp}
 
 Number = @{ASCII_DIGIT+| ASCII_DIGIT+? ~"." ~ ASCII_DIGIT+}
 
@@ -55,4 +55,4 @@ Shortnorm = {"d" ~ Number }
 
 Var = @{ "$" ~ identChar+ }
 identChar = _{ ASCII_ALPHANUMERIC | "_" | "(" | ")" }
-WHITESPACE = _{ " " }	
+WHITESPACE = _{ " " }

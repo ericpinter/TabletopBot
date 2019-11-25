@@ -1,4 +1,3 @@
-#![cfg_attr(test, feature(test))]
 extern crate serenity;
 extern crate regex;
 extern crate pest;
@@ -10,8 +9,6 @@ extern crate serde;
 extern crate serde_json;
 extern crate rand;
 extern crate reqwest;
-
-//extern crate test;
 
 mod database;
 mod parser;
@@ -30,45 +27,30 @@ struct Handler;
 
 impl EventHandler for Handler {
     fn message(&self, ctx: Context, msg: Message) {
-        if &msg.content[0..1] == "!" && !msg.author.bot {
+        if msg.author.bot{return;}
+        let reply_info = (msg.author.mention(),msg.channel_id);
+        let mut args = msg.content.split_whitespace();
+        let mut first_input = args.next().unwrap_or(" ").chars();
 
+        println!("Recieved input");
+
+        if let Some('!') = first_input.next() {
             let now = Instant::now();
-
-            let reply_info = (msg.author.mention(),msg.channel_id.clone());
-            let mut args = msg.content.split_whitespace();
-            let cmd = &args.next().unwrap_or(" ")[1..];//ignore the inital !
+            let cmd_string = first_input.collect::<String>().to_lowercase();
+            let cmd = cmd_string.as_str();//ignore the inital !
             let user = msg.author.id.0.to_string();
 
-
             println!("cmd is {} matching at {}",cmd,now.elapsed().as_millis());
-            match cmd.to_lowercase().as_str() {
+            match cmd {
 
                 "port" => {
-                    let num = args.collect::<Vec<&str>>().join( "");
-                    if regex::Regex::new(r"^[0-9]+$").expect("Regex failed").is_match(&num){
-                        let json:serde_json::Value = reqwest::get(&format!("https://www.myth-weavers.com/api/v1/sheets/sheets/{}",num)).unwrap().json().unwrap();
-                        //Mythweavers formats their data like this, don't blame me for the mess
-                        let sheet_template = json["sheetdata"]["sheet_template_id"].as_u64().expect("Failed to find template");
-
-                        let map_str = json["sheetdata"]["sheet_data"]["jsondata"].as_str().expect("Failed to traverse json");
-                        let map:serde_json::Value = serde_json::from_str(map_str).expect("failed to parse nested json");
-                        let map = map.as_object().expect("Map");
-
-                        let char_name = map.get("Name").expect("Name not found").as_str().expect("finding char_name");
-                        println!("Making a character named {}",char_name);
-                        add_char(&user, char_name);
-
-                        match sheet_template{
-                            11 => {port_35e(&user,map); reply(reply_info,ctx,&list_vars(&user));},
-                            43 => {port_sf(&user,map); reply(reply_info,ctx,&list_vars(&user));},
-                            other =>{
-                                reply (reply_info,ctx,"Are you sure that this is a sheet of the right type? It may not be supported at the moment");
-                                println!("Failed to port {:?}",other    );
-                            }
-                        }
-
-                    } else {reply(reply_info,ctx,"Please make sure you have only the number at the end of your mw sheet in this command")}
-                    }
+                    let num = args.next();
+                    let response = match num {
+                        Some(id) => {port_character(&user, &id)}
+                        None => {String::from("It appears you gave an invalid mythweavers id")}
+                    };
+                    reply(reply_info, ctx,&response);
+                }
 
                 "char" => {
                     let name = args.collect::<Vec<&str>>().join(" ");
@@ -89,7 +71,6 @@ impl EventHandler for Handler {
                     let name = args.collect::<Vec<&str>>().join(" ");
                     reply(reply_info,ctx, &remove_char(&user, &name));
                 }
-
 
                 "h" | "help" => {
                     reply(reply_info,ctx, "![h/help] you should know what this does\n![listchar/listchars] will list the valid characters you have defined\n![char] [name] will create a blank character\n![delchar] [name] will remove said character\n![switch] [name] switch to the given characters\n![port] [id] will port an entire mythweavers sheet (or at least the important stuff) given the number at the end of the url\n\
@@ -131,49 +112,61 @@ impl EventHandler for Handler {
                                 else{ reply(reply_info,ctx, "Please start all vars with $, and use only a-z A-Z _ 0-9 and () in the variable's name"); }
                             }
                             "ic" | "incharacter" => {
-                                let _ = msg.delete(&ctx);
                                 let out = match resolve(&user,"$character"){
                                     Some(s) =>{s},
                                     None => {msg.author.name.clone()},
                                 };
 
-                                let color = match resolve(&user,"$color"){
-                                    Some(s) =>{s},
-                                    None => {String::from("135678")},
-                                };
+
+                                let color =
+                                    if let Some(s) = resolve(&user,"$color") {
+                                        match s.parse::<u32>() {
+                                            Ok(n) =>{n},
+                                            Err(_) => {123456},
+                                        }
+                                    }
+                                    else {123456};
+
 
                                 let partial_guild = msg.guild_id.unwrap().to_partial_guild(&ctx).unwrap();
 
-                                let icon:&serenity::model::guild::Emoji = partial_guild.emojis.values().find(|e| {println!("{} says:",e.name); e.name == out}).unwrap();
-                                println!("{:?}",icon);
+                                let icon_url =
+                                    match partial_guild.emojis.values().find(|e| {e.name == out}) {
+                                        //try and find a custom emoji named after their character
+                                        Some(icon) =>{icon.url()}
+                                        None =>{
+                                            //otherwise try to just make it their avatar
+                                             msg.author.avatar_url().unwrap_or(
+                                                 //otherwise give them something universal
+                                                 String::from("https://modworkshop.net/mydownloads/previews/preview_54895_1540694735_b03cf8b0fc082142d5ab1ff8a7dc0fb4.jpg"))
+                                        }
+                                    };
 
                                 let text =  args.collect::<Vec<&str>>().join(" ");
-                                println!("{} ic with text = {}",&out,text);
                                 let result = msg.channel_id.send_message(&ctx, |m| {
-                                    m//.content("")
-                                    .embed(|e| {
-                                        e//.title(format!("{} says:",out))
-                                            .author(|aut| aut.name(&out).icon_url(icon.url()) )
-                                        .field("Says ",text,true)
-                                        .color(color.parse::<u32>().unwrap_or(123456))
-
-                                    })
+                                    m.embed(|e| {
+                                            e.title(format!("{}",text))
+                                                .author(|aut| aut.name(&out).icon_url(icon_url) )
+                                                .color(color)
+                                        })
                                 });
                                 println!("{:?}",result);
+                                let _ = msg.delete(&ctx);
                             }
-                            "r" | "roll" => {
 
+                            "r" | "roll" => {
                                 let output =  parse(user,args.collect::<Vec<&str>>().join(" ")).unwrap_or(String::from("Invalid Input"));
                                 reply(reply_info,ctx,&output);
                             }
-                            "re" | "rollexplicit" => {
 
+                            "re" | "rollexplicit" => {
+                                //TODO
                             }
 
                             _ => { reply(reply_info,ctx,"Unknown Command") }
                         }
                     } else {
-                       reply(reply_info,ctx,"It seems that you're trying to use the bot with an invalid active character (or perhaps with no characters at all)! Port one from MW with 'port', create a blank one with 'char', or use 'switch' to switch to an existing one.");
+                        reply(reply_info,ctx,"It seems that you're trying to use the bot with an invalid active character (or perhaps with no characters at all)! Port one from MW with 'port', create a blank one with 'char', or use 'switch' to switch to an existing one.");
                     }
                 }
             }
@@ -184,6 +177,34 @@ impl EventHandler for Handler {
     fn ready(&self, _: Context, ready: Ready) {
         println!("{} is connected!", ready.user.name);
     }
+}
+
+ fn port_character(user:&str,num:&str) -> String {
+    if regex::Regex::new(r"^[0-9]+$").expect("Regex failed").is_match(num){
+        let url = format!("https://www.myth-weavers.com/api/v1/sheets/sheets/{}",num);
+        let response = reqwest::blocking::get(&url).expect("Request failed");
+        let json:serde_json::Value = response.json().expect("Request worked, but the given sheet has no json");
+        //Mythweavers formats their data like this, don't blame me for the mess
+        let sheet_template = json["sheetdata"]["sheet_template_id"].as_u64().expect("Failed to find template");
+
+        let map_str = json["sheetdata"]["sheet_data"]["jsondata"].as_str().expect("Failed to traverse json");
+        let map:serde_json::Value = serde_json::from_str(map_str).expect("failed to parse nested json");
+        let map = map.as_object().expect("Map");
+
+        let char_name = map.get("Name").expect("Name not found").as_str().expect("finding char_name");
+        println!("Making a character named {}",char_name);
+        add_char(user, char_name);
+
+        match sheet_template{
+            11 => {port_35e(user,map); list_vars(user)},
+            43 => {port_sf(user,map); list_vars(user)},
+            other =>{
+                println!("Failed to port {:?}",other);
+                String::from("Are you sure that this is a sheet of the right type? It may not be supported at the moment")
+            }
+        }
+
+    } else {String::from("Please make sure you have only the number at the end of your mw sheet in this command")}
 }
 
 fn port_35e (user:&str,m:&serde_json::Map<String,serde_json::Value>){
@@ -199,7 +220,6 @@ fn port_35e (user:&str,m:&serde_json::Map<String,serde_json::Value>){
         }
     }
     let get_value = |v_name:&str| {m.get(v_name).unwrap().as_str().unwrap()};
-
 
     //Then do all of the attributes and values which are otherwise useful
     set("reflex",get_value("Reflex"));
@@ -241,4 +261,5 @@ fn main() {
     if let Err(e) = client.start() {
         println!("Client error: {:?}", e);
     }
+    println!("Started");
 }

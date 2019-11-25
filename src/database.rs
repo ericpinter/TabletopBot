@@ -14,25 +14,6 @@ lazy_static! {
 
 pub type UserMapStruct = HashMap<String, User>;//UserName -> (map of char names to (map of eqs.))
 
-#[bench]
-pub fn stress_test(b: &mut test::Bencher) {
-    b.iter(|| stress(100));
-}
-
-pub fn stress(i: u32) {
-    add_char("test", "test");
-    for _ in 0..i {
-        std::thread::spawn(||{
-        set_var("test", "$x", "$x");
-        let result = match resolve("test", "$x") {
-            Some(r) => { r }
-            None => String::from("FUCKED UP"),
-        };
-        remove_var("test", &result);
-        });
-    };
-}
-
 #[derive(Debug, Serialize, Deserialize)]
 pub struct User { current_char: String, vars: HashMap<String, Character> }
 
@@ -91,7 +72,7 @@ pub fn list_vars(user: &str) -> String {
     let user = (*lock).get(user).unwrap();
     let ch = user.vars.get(&user.current_char).unwrap();
 
-    if ch.len() == 0 {
+    if ch.is_empty() {
         String::from("You've got no defined variables")
     } else {
         let mut keys = ch.keys();
@@ -105,7 +86,7 @@ pub fn list_chars(user: String) -> String {
     let lock = USER_MAP.read().unwrap();
     let user = (*lock).get(&user).unwrap();
 
-    if user.vars.len() == 0 {
+    if user.vars.is_empty() {
         String::from("You've got no defined characters")
     } else {
         let mut keys = user.vars.keys();
@@ -205,14 +186,12 @@ pub fn remove_var(user: &str, v_name: &str) -> String {
     let ch = user.vars.get_mut(&user.current_char).unwrap();
     let r = if ch.contains_key(&v_name) {
         ch.remove(&v_name);
-        String::from(format!("Your variable {} has been cleared", v_name))
+        format!("Your variable {} has been cleared", v_name)
+    } else if v_name.eq("confirm") {
+        user.insert(user.current_char.clone(), Character::new());
+        String::from("Your (and only your) commands have been cleared")
     } else {
-        if v_name.eq("confirm") {
-            user.insert(user.current_char.clone(), Character::new());
-            String::from("Your (and only your) commands have been cleared")
-        } else {
-            String::from("If you're trying to clear me, type confirm after the clear")
-        }
+        String::from("If you're trying to clear me, type confirm after the clear")
     };
     drop(lock);
     save_db();
