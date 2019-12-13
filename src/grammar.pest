@@ -1,9 +1,13 @@
-Arithmetic = {SOI ~ (!(TextExp~EOI) ~ Exp|TextExp) ~ EOI }
+Arithmetic = {SOI ~ Calculation ~ EOI }
+Calculation = {(!(TextExp~EOI) ~ Exp |TextExp) }
+
+Ternary = {MathExp ~ "?" ~ Exp ~ ":" ~ Exp}
 
 Exp = {
     FrontEq |
 	BackEq |
-    MathExp
+    MathExp |
+	"("~Ternary~")"
 }
 
 TextExp = {
@@ -49,10 +53,12 @@ Roll = {
     Shortnorm|
     Var
 }
+
 Keep = {Number ~ "d" ~ Number ~ "k" ~ Number}
 Norm = {Number ~ "d" ~ Number}
 Shortnorm = {"d" ~ Number }
 
-Var = @{ "$" ~ identChar+ }
+Var = { "$" ~ (!("("~Calculation~")") ~ identChar+ | "("~Calculation~")") }
+//Var = @{ "$" ~ identChar+ }
 identChar = _{ ASCII_ALPHANUMERIC | "_" | "(" | ")" }
 WHITESPACE = _{ " " }

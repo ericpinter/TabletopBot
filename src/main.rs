@@ -155,12 +155,21 @@ impl EventHandler for Handler {
                             }
 
                             "r" | "roll" => {
-                                let output =  parse(user,args.collect::<Vec<&str>>().join(" ")).unwrap_or(String::from("Invalid Input"));
-                                reply(reply_info,ctx,&output);
+                                let out = match parse(user,args.collect::<Vec<&str>>().join(" ")){
+                                    Ok(parse_result) =>{parse_result.output},
+                                    Err(_) =>{String::from("Invalid Input")}
+                                };
+                                reply(reply_info,ctx,&out);
                             }
 
                             "re" | "rollexplicit" => {
-                                //TODO
+                                let out = match parse(user,args.collect::<Vec<&str>>().join(" ")){
+                                    Ok(parse_result) =>{
+                                        format!("({}) → ({}) → {}",parse_result.defurled,parse_result.unwrapped,parse_result.output)
+                                    },
+                                    Err(_) =>{String::from("Invalid Input")}
+                                };
+                                reply(reply_info,ctx,&out);
                             }
 
                             _ => { reply(reply_info,ctx,"Unknown Command") }
