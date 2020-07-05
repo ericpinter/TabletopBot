@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 const SAVE_LOC: &str = "./cmdList.json";
 
 lazy_static! {
-    pub static ref USER_MAP:RwLock<UserMapStruct>={load_db()};
+    pub static ref USER_MAP:RwLock<UserMapStruct>=load_db();
 }
 
 pub type UserMapStruct = HashMap<String, User>;//UserName -> (map of char names to (map of eqs.))
