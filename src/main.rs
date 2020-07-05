@@ -95,7 +95,7 @@ fn delchar(ctx : &mut Context, msg : &Message, args : Args) -> CommandResult {
 fn roll(ctx : &mut Context, msg : &Message, args : Args) -> CommandResult {
     let user = msg.author.id.0.to_string();
     let out = {
-        match parse(user, args.rest()) {
+    match parse(user, args.rest()) {
             Ok(cal) => cal.output.to_string(),
             Err(e) => format!("ERROR!: {}" ,e)
         }
@@ -340,6 +340,7 @@ fn port_sf (user:&str,m:&serde_json::Map<String,serde_json::Value>){}
 
 
 //sends the given string as a reply to the user, with a mention to them included
+//TODO handle overlong messages more gracefully
 fn reply(ctx: &mut Context, msg : &Message, s:&str) -> CommandResult {
     let reply_time = Instant::now();
     let s = format!("{},\n{}",msg.author.mention(),s);

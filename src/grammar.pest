@@ -1,7 +1,7 @@
 Arithmetic = {SOI ~ Calculation ~ EOI }
-Calculation = {(!(TextExp~EOI) ~ Exp |TextExp) }
+Calculation = {(!(Exp~EOI) ~ Exp | Exp) }
 
-Ternary = {MathExp ~ "?" ~ Exp ~ ":" ~ Exp}
+Ternary = {MathExp ~ "?" ~ Calculation ~ ":" ~ Calculation}
 
 Exp = {
     FrontEq |
@@ -10,18 +10,6 @@ Exp = {
 	"("~Ternary~")"
 }
 
-TextExp = {
-	   TextBasic ~ (add ~ TextBasic)*
-}
-
-TextBasic = {
-    MathExp |
-    String |
-    Repeat
-}
-
-String = {"\"" ~ (!"\"" ~ ANY)* ~ "\"" }
-Repeat = { "repeat" ~ "(" ~ TextExp ~ "," ~ Number ~ ")"  }
 
 BackEq = { MathExp ~ "=" ~ Var }
 FrontEq = {Var ~ "=" ~ Exp}
@@ -41,9 +29,19 @@ PriExp = {"("~Exp~")"|
     "+" ~ Exp |
 	Negate |
     Roll |
-    Number
+    Number |
+    TextBasic
 }
-Negate = {"-" ~ Exp}
+
+
+String = {"\"" ~ (!"\"" ~ ANY)* ~ "\"" }
+Repeat = { "repeat" ~ "(" ~ Exp ~ "," ~ Number ~ ")"  }
+TextBasic = {
+    String |
+    Repeat
+}
+
+Negate = _{"-" ~ Exp}
 
 Number = @{ASCII_DIGIT+| ASCII_DIGIT+? ~"." ~ ASCII_DIGIT+}
 
@@ -58,7 +56,7 @@ Keep = {Number ~ "d" ~ Number ~ "k" ~ Number}
 Norm = {Number ~ "d" ~ Number}
 Shortnorm = {"d" ~ Number }
 
-Var = { "$" ~ (!("("~Calculation~")") ~ identChar+ | "("~Calculation~")") }
-//Var = @{ "$" ~ identChar+ }
-identChar = _{ ASCII_ALPHANUMERIC | "_" | "(" | ")" }
+Var = { "$" ~ (!("("~Calculation~")") ~ Identifier | "("~Calculation~")") }
+Identifier = @{identChar+}
+identChar = _{ ASCII_ALPHANUMERIC | "-" }
 WHITESPACE = _{ " " }
