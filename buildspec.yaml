@@ -2,7 +2,7 @@
 phases:
   pre_build:
     commands:
-      - "curl https://sh.rustup.rs -sSf | sh"
+      - "curl https://sh.rustup.rs -sSf | sh -s -- -y"
   build:
     commands:
       - "echo Build started on `date`"
