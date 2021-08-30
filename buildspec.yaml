@@ -1,6 +1,6 @@
 ---
 phases:
-  pre-build:
+  pre_build:
     commands:
       - "curl https://sh.rustup.rs -sSf | sh"
   build:
