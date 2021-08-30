@@ -5,9 +5,8 @@ use self::Variable::*;
 use pest::prec_climber::*;
 use pest::iterators::Pairs;
 use pest::iterators::Pair;
-use std::fmt::Display;
+use std::fmt::{Display, Formatter};
 use std::fmt;
-use serde::export::Formatter;
 
 #[derive(Debug)]
 pub enum Variable {
