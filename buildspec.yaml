@@ -7,7 +7,7 @@ phases:
     commands:
       - "echo Build started on `date`"
       - "source $HOME/.cargo/env"
-      - "cargo run main.rs --release"
+      - "cargo build main.rs --release"
   post_build:
     commands:
       - "echo Build completed on `date`"

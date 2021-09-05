@@ -1,3 +1,4 @@
+#![feature(result_flattening)]
 extern crate serenity;
 extern crate regex;
 extern crate pest;
@@ -12,16 +13,17 @@ extern crate reqwest;
 
 mod database;
 mod parser;
+
 use parser::parse;
 use pest::*;
 
 use database::*;
 use std::env;
 use serenity::{
-    model::{channel::Message, gateway::Ready,id::ChannelId},
+    model::{channel::Message, gateway::Ready, id::ChannelId},
     prelude::*,
     framework::standard::macros::*,
-    framework::standard::*
+    framework::standard::*,
 };
 use std::time::Instant;
 use serenity::http::CacheHttp;
@@ -33,38 +35,38 @@ use serenity::model::id::UserId;
 ///Takes the myth-weavers id associated with a character sheet. This is the number at the end of the url when viewing the sheet.
 ///This command then ports the skills, and attributes associated with the given sheet into a character in this bot.
 ///Currently only 3.5 and starfinder sheets are supported, and not all information is ported.
-fn port(ctx : &mut Context, msg : &Message, args : Args) -> CommandResult {
+fn port(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     let id = args.current().unwrap();
     let user = msg.author.id.0.to_string();
     let response = port_character(&user, &id);
-    reply(ctx,msg, &response)
+    reply(ctx, msg, &response)
 }
 
 #[command]
 #[min_args(1)]
 ///Takes a name and creates an empty character with that name.
-fn char(ctx : &mut Context, msg : &Message, args : Args) -> CommandResult {
+fn char(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     let user = msg.author.id.0.to_string();
     let name = args.rest();
     add_char(&user, &name);
-    reply(ctx,msg, &format!("Created a char named: {} ", name))
+    reply(ctx, msg, &format!("Created a char named: {} ", name))
 }
 
 #[command]
 #[aliases(lc, lchar, listchars, charlist)]
 ///Lists the characters that you have defined.
-fn listchar(ctx : &mut Context, msg : &Message, args : Args) -> CommandResult {
+fn listchar(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     let user = msg.author.id.0.to_string();
-    reply(ctx,msg, &list_chars(user))
+    reply(ctx, msg, &list_chars(user))
 }
 
 #[command]
 #[aliases(setcc)]
 #[min_args(1)]
 ///Takes a name and attempts to switch to that character.
-fn switch(ctx : &mut Context, msg : &Message, args : Args) -> CommandResult {
+fn switch(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     let user = msg.author.id.0.to_string();
-    reply(ctx, msg, & set_cc( &user, & args.rest()))
+    reply(ctx, msg, &set_cc(&user, &args.rest()))
 }
 
 
@@ -72,9 +74,9 @@ fn switch(ctx : &mut Context, msg : &Message, args : Args) -> CommandResult {
 #[aliases(del)]
 #[min_args(1)]
 ///Takes a name and attempts to delete that character.
-fn delchar(ctx : &mut Context, msg : &Message, args : Args) -> CommandResult {
+fn delchar(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     let user = msg.author.id.0.to_string();
-    reply(ctx,msg, &remove_char(&user, &args.rest()))
+    reply(ctx, msg, &remove_char(&user, &args.rest()))
 }
 
 //TODO help command?
@@ -92,12 +94,12 @@ fn delchar(ctx : &mut Context, msg : &Message, args : Args) -> CommandResult {
 ///Two equality operators are defined. ($x = d30) would mean on each subsequent use of $x a new 30 sided die would be rolled. (d30 = $x) would store the result of a single roll and always use that value.
 ///The ternary operator (t ? [expression 1] : [expression 2]) returns the value [expression 1] if t is not zero. If it is zero it returns the value [expression 2]
 ///Just for added fun, variables can be referenced indirectly. For example storing "b" in $a and evaluating $($a) is equivalent to $b. This also works with ternary statements
-fn roll(ctx : &mut Context, msg : &Message, args : Args) -> CommandResult {
+fn roll(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     let user = msg.author.id.0.to_string();
     let out = {
-    match parse(user, args.rest()) {
+        match parse(user, args.rest()) {
             Ok(cal) => cal.output.to_string(),
-            Err(e) => format!("ERROR!: {}" ,e)
+            Err(e) => format!("ERROR!: {}", e)
         }
     };
     reply(ctx, msg, &out)
@@ -108,28 +110,27 @@ fn roll(ctx : &mut Context, msg : &Message, args : Args) -> CommandResult {
 #[aliases(re)]
 #[min_args(1)]
 ///Takes an expression and evaluates it, showing the steps of variable resolution and evaluation.
-fn roll_explicit(ctx : &mut Context, msg : &Message, args : Args) -> CommandResult {
+fn roll_explicit(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     let user = msg.author.id.0.to_string();
     let out = match parse(user, args.rest()) {
         Ok(parse_result) => {
             format!("({}) → ({}) → {}", parse_result.defurled, parse_result.unwrapped, parse_result.output)
-        },
+        }
         Err(_) => { String::from("Invalid Input") }
     };
     reply(ctx, msg, &out)
 }
 
 #[group]
-#[commands(port,char,listchar,switch,delchar,roll,roll_explicit)]
+#[commands(port, char, listchar, switch, delchar, roll, roll_explicit)]
 struct General;
 
 
 #[check]
 #[name(valid_current_character)]
-fn valid_current_character(ctx : &mut Context, msg : &Message, args : &mut Args, op : &CommandOptions) -> CheckResult {
+fn valid_current_character(ctx: &mut Context, msg: &Message, args: &mut Args, op: &CommandOptions) -> CheckResult {
     let user = msg.author.id.0.to_string();
-    if valid_cc(&user) {CheckResult::Success}
-    else {CheckResult::Failure(Reason::User(String::from("It seems you do not have a valid current character_based. Use the !char command to make a new one or !switch to switch to one you already have.") ))}
+    if valid_cc(&user) { CheckResult::Success } else { CheckResult::Failure(Reason::User(String::from("It seems you do not have a valid current character_based. Use the !char command to make a new one or !switch to switch to one you already have."))) }
 }
 
 #[command]
@@ -137,29 +138,28 @@ fn valid_current_character(ctx : &mut Context, msg : &Message, args : &mut Args,
 #[min_args(2)]
 ///Takes the name of a variable (prefixed with $) and a valid expression. The expression is then stored in the variable.
 ///Note that the expression is recalculated each time the variable is used, so !a $x [expr] is equivalent to !r $x = [expr].
-fn assign(ctx : &mut Context, msg : &Message, mut args: Args) -> CommandResult {
+fn assign(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     let user = msg.author.id.0.to_string();
     let var = args.current().unwrap().to_owned();
 
-    let response = if regex::Regex::new(r"\$[[a-zA-Z]\d_()]").unwrap().is_match(&var){
-
+    let response = if regex::Regex::new(r"\$[[a-zA-Z]\d_()]").unwrap().is_match(&var) {
         args.advance();
         let exp = args.rest();
         //TODO test exp with grammar
 
         set_var(&user, &var, &exp);
         "Assigned!"
-    } else{ "Please start all vars with $, and use only a-z A-Z _ 0-9 and () in the variable's name" };
-    reply(ctx,msg,response)
+    } else { "Please start all vars with $, and use only a-z A-Z _ 0-9 and () in the variable's name" };
+    reply(ctx, msg, response)
 }
 
 
 #[command]
 #[aliases(l)]
 ///Lists the variables you have defined in the current character
-fn list(ctx : &mut Context, msg : &Message, args : Args) -> CommandResult {
+fn list(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     let user = msg.author.id.0.to_string();
-    reply(ctx,msg, &list_vars(&user))
+    reply(ctx, msg, &list_vars(&user).ok_or("Vars not found")?)
 }
 
 
@@ -167,12 +167,12 @@ fn list(ctx : &mut Context, msg : &Message, args : Args) -> CommandResult {
 #[min_args(1)]
 #[aliases(v)]
 ///Takes the name of a variable (prefixed with $). Returns the raw (un-evaluated) value associated with that variable.
-fn value(ctx : &mut Context, msg : &Message, args : Args) -> CommandResult {
+fn value(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     let user = msg.author.id.0.to_string();
     //TODO be wary of unwrapping and resolution before
     let name = args.rest();
     let val = match resolve(&user, name) {
-        Some(s) => { s },
+        Some(s) => { s }
         None => { String::from("Does not exist!") }
     };
 
@@ -183,7 +183,7 @@ fn value(ctx : &mut Context, msg : &Message, args : Args) -> CommandResult {
 #[command]
 #[min_args(2)]
 ///Takes two variable names (both prefixed with $). Reassigns the value in the first variable into the second, deleting the first.
-fn rename(ctx : &mut Context, msg : &Message, mut args : Args) -> CommandResult {
+fn rename(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     let user = msg.author.id.0.to_string();
     let prev = args.current().unwrap().to_owned();
     args.advance();
@@ -194,12 +194,12 @@ fn rename(ctx : &mut Context, msg : &Message, mut args : Args) -> CommandResult 
             set_var(&user, &next, &val);
             remove_var(&user, &prev);
             format!("Renamed {} to {}", prev, next)
-        },
+        }
         None => {
             format!("{} does not seem to exist", prev)
-        },
+        }
     };
-    reply(ctx,msg,&response)
+    reply(ctx, msg, &response)
 }
 
 
@@ -211,20 +211,20 @@ fn rename(ctx : &mut Context, msg : &Message, mut args : Args) -> CommandResult 
 ///Defining the value $color (with a hexadecimal color code) lets you change the color on the left of the embed.
 ///The variable $character_emoji can assigned to the name of an emoji. The icon in the embedd will then be that emoji.
 ///Note that because these variables are a part of the roll evaluation system they should not be surrounded by quotes, unlike other text.
-fn inchar(ctx : &mut Context, msg : &Message, args : Args) -> CommandResult {
+fn inchar(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     let user = msg.author.id.0.to_string();
     let out = match resolve(&user, "$character_emoji") {
-        Some(s) => { s },
-        None => { msg.author.name.clone() },
+        Some(s) => { s }
+        None => { msg.author.name.clone() }
     };
 
     let color =
         if let Some(s) = resolve(&user, "$color") {
-            u64::from_str_radix(&s,16)?
+            u64::from_str_radix(&s, 16)?
         } else { 123456 };
 
     //actually guaranteed by the only_in guilds flag
-    if let Some(guild) = msg.guild(&ctx.cache){
+    if let Some(guild) = msg.guild(&ctx.cache) {
         let icon_url =
             match guild.read().emojis.values().find(|e| { e.name == out }) {
                 //try and find a custom emoji named after their character_based
@@ -253,7 +253,7 @@ fn inchar(ctx : &mut Context, msg : &Message, args : Args) -> CommandResult {
 }
 
 #[group]
-#[commands(assign,list,value,rename,inchar)]
+#[commands(assign, list, value, rename, inchar)]
 #[checks(valid_current_character)]
 struct character_based;
 
@@ -269,84 +269,86 @@ fn help(
     args: Args,
     help_options: &'static HelpOptions,
     groups: &[&'static CommandGroup],
-    owners: HashSet<UserId>
+    owners: HashSet<UserId>,
 ) -> CommandResult {
     help_commands::with_embeds(context, msg, args, help_options, groups, owners)
 }
 
 
-
-
-fn port_character(user:&str,num:&str) -> String {
-    if regex::Regex::new(r"^[0-9]+$").expect("Regex failed").is_match(num){
-        let url = format!("https://www.myth-weavers.com/api/v1/sheets/sheets/{}",num);
+fn port_character(user: &str, num: &str) -> String {
+    if regex::Regex::new(r"^[0-9]+$").expect("Regex failed").is_match(num) {
+        let url = format!("https://www.myth-weavers.com/api/v1/sheets/sheets/{}", num);
         let response = reqwest::blocking::get(&url).expect("Request failed");
-        let json:serde_json::Value = response.json().expect("Request worked, but the given sheet has no json");
+        let json: serde_json::Value = response.json().expect("Request worked, but the given sheet has no json");
         //Mythweavers formats their data like this, don't blame me for the mess
         let sheet_template = json["sheetdata"]["sheet_template_id"].as_u64().expect("Failed to find template");
 
         let map_str = json["sheetdata"]["sheet_data"]["jsondata"].as_str().expect("Failed to traverse json");
-        let map:serde_json::Value = serde_json::from_str(map_str).expect("failed to parse nested json");
+        let map: serde_json::Value = serde_json::from_str(map_str).expect("failed to parse nested json");
         let map = map.as_object().expect("Map");
 
         let char_name = map.get("Name").expect("Name not found").as_str().expect("finding char_name");
-        println!("Making a character_based named {}",char_name);
+        println!("Making a character_based named {}", char_name);
         add_char(user, char_name);
 
-        match sheet_template{
-            11 => {port_35e(user,map); list_vars(user)},
-            43 => {port_sf(user,map); list_vars(user)},
-            other =>{
-                println!("Failed to port {:?}",other);
+        match sheet_template {
+            11 => {
+                port_35e(user, map);
+                list_vars(user).unwrap()
+            }
+            43 => {
+                port_sf(user, map);
+                list_vars(user).unwrap()
+            }
+            other => {
+                println!("Failed to port {:?}", other);
                 String::from("Are you sure that this is a sheet of the right type? It may not be supported at the moment")
             }
         }
-
-    } else {String::from("Please make sure you have only the number at the end of your mw sheet in this command")}
+    } else { String::from("Please make sure you have only the number at the end of your mw sheet in this command") }
 }
 
-fn port_35e (user:&str,m:&serde_json::Map<String,serde_json::Value>){
+fn port_35e(user: &str, m: &serde_json::Map<String, serde_json::Value>) {
     println!("Starting the port!");
-    let set=|k:&str,v:&str| set_var(user, &format!("${}", k), &format!("d20{}{}", if v.parse::<i64>().unwrap()>=0 {"+"} else {""}, v));
+    let set = |k: &str, v: &str| set_var(user, &format!("${}", k), &format!("d20{}{}", if v.parse::<i64>().unwrap() >= 0 { "+" } else { "" }, v));
 
     let skill_regex = regex::Regex::new("^Skill[0-9]{2}$").expect("Wrong RegEx");
     //port over all skills
-    for (k,v) in m.iter(){
-        if skill_regex.is_match(k){
-            let q = m.get(&format!("{}Mod",k)).expect("Mod not found");
-            set(&v.as_str().unwrap().replace(" ","").replace("(","-").replace(")",""),q.as_str().unwrap());
-
+    for (k, v) in m.iter() {
+        if skill_regex.is_match(k) {
+            let q = m.get(&format!("{}Mod", k)).expect("Mod not found");
+            set(&v.as_str().unwrap().replace(" ", "").replace("(", "-").replace(")", ""), q.as_str().unwrap());
         }
     }
-    let get_value = |v_name:&str| {m.get(v_name).unwrap().as_str().unwrap()};
+    let get_value = |v_name: &str| { m.get(v_name).unwrap().as_str().unwrap() };
 
     //Then do all of the attributes and values which are otherwise useful
-    set("reflex",get_value("Reflex"));
-    set("str",get_value("StrMod"));
-    set("dex",get_value("DexMod"));
-    set("con",get_value("ConMod"));
-    set("int",get_value("IntMod"));
-    set("wis",get_value("WisMod"));
-    set("cha",get_value("ChaMod"));
-    set("init",get_value("Init"));
-    set("fort",get_value("Fort"));
-    set("will",get_value("Will"));
+    set("reflex", get_value("Reflex"));
+    set("str", get_value("StrMod"));
+    set("dex", get_value("DexMod"));
+    set("con", get_value("ConMod"));
+    set("int", get_value("IntMod"));
+    set("wis", get_value("WisMod"));
+    set("cha", get_value("ChaMod"));
+    set("init", get_value("Init"));
+    set("fort", get_value("Fort"));
+    set("will", get_value("Will"));
 
     println!("finished porting");
 }
 
 //TODO
-fn port_sf (user:&str,m:&serde_json::Map<String,serde_json::Value>){}
+fn port_sf(user: &str, m: &serde_json::Map<String, serde_json::Value>) {}
 
 
 //sends the given string as a reply to the user, with a mention to them included
 //TODO handle overlong messages more gracefully
-fn reply(ctx: &mut Context, msg : &Message, s:&str) -> CommandResult {
+fn reply(ctx: &mut Context, msg: &Message, s: &str) -> CommandResult {
     let reply_time = Instant::now();
-    let s = format!("{},\n{}",msg.author.mention(),s);
+    let s = format!("{},\n{}", msg.author.mention(), s);
     msg.channel_id.say(ctx.http(), s)?;
 
-    println!("replying alone took {} ms",reply_time.elapsed().as_millis());
+    println!("replying alone took {} ms", reply_time.elapsed().as_millis());
     Ok(())
 }
 
@@ -360,14 +362,13 @@ fn main() {
         .configure(|c| c.prefix("!")
             .case_insensitivity(true))
         .group(&GENERAL_GROUP).group(&CHARACTER_BASED_GROUP)
-        .on_dispatch_error(|ctx,msg,err|{
-            reply(ctx,msg,&format!("Error {:?} while executing that command",err));
+        .on_dispatch_error(|ctx, msg, err| {
+            reply(ctx, msg, &format!("Error {:?} while executing that command", err));
         })
         .unrecognised_command(|ctx, msg, given_cmd| {
-            reply(ctx,msg,&format!("The command {} was unrecognized",given_cmd));
+            reply(ctx, msg, &format!("The command {} was unrecognized", given_cmd));
         })
         .help(&HELP)
-
     );
 
     if let Err(e) = client.start() {
