@@ -112,7 +112,7 @@ impl ArithmeticParser {
                     Ok(Calculation::new(Num(result), format!("{}", result), format!("{}", result)))
                 }
                 Rule::Ternary => {// in the form t?x:y. x is the value of this statement if t is non-zero, y is the value if it is zero
-                    let mut stmt = pair.into_inner();
+                    let stmt = pair.into_inner();
                     let [t_e, x, y] = as_slice(stmt.map(|x| Ok(x)))?;
 
                     let t = self.eval(t_e)?.output;
@@ -125,7 +125,7 @@ impl ArithmeticParser {
                     }
                 }
                 Rule::Norm => {// in the form xdy e.g. 3d6
-                    let mut stmt = pair.into_inner();
+                    let stmt = pair.into_inner();
                     let [x, y] = as_slice(stmt.map(|val| self.eval(val)?.output.as_num()))?;
 
                     //x and y will not have String components
@@ -146,7 +146,7 @@ impl ArithmeticParser {
                 }
 
                 Rule::Keep => {//e.g. 3d6k2
-                    let mut stmt = pair.into_inner();
+                    let stmt = pair.into_inner();
 
                     let [x, y, k] = as_slice(stmt.map(|val| self.eval(val)?.output.as_num()))?;
                     let mut nums: Vec<u64> = vec![0; x as usize];
@@ -169,7 +169,7 @@ impl ArithmeticParser {
 
                         println!("i is {:?}", i);
 
-                        let mut v_name = match i.as_rule() {
+                        let v_name = match i.as_rule() {
                             Rule::Calculation => {
                                 format!("${}", self.full_eval(Pairs::single(i))?.output.into_string())
                             }
@@ -196,7 +196,7 @@ impl ArithmeticParser {
                     //here we assign the variable on the left to the *raw* value of the expression on the right. i.e. it will be re-calculated when the variable is used
                     //we then calculate and return what the expression was
                     //this lets us assign variables inside of larger expressions e.g. ($x=d20+6)-2
-                    let mut stmt = pair.into_inner();
+                    let stmt = pair.into_inner();
 
                     let [var_p, val_group] = as_slice(stmt.map(|x| Ok(x)))?;
                     let var = var_p.as_str();
@@ -285,7 +285,7 @@ impl ArithmeticParser {
     }
 }
 
-fn as_slice<P, T, const N: usize>(mut pairs: P) -> Result<[T; N], String> where P: Iterator<Item=Result<T, String>> {
+fn as_slice<P, T, const N: usize>(pairs: P) -> Result<[T; N], String> where P: Iterator<Item=Result<T, String>> {
     let v = pairs.collect::<Result<Vec<T>, _>>()?;
     v.try_into().map_err(|_| "Failed conversion".into())
 }

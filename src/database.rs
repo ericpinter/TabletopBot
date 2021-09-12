@@ -58,18 +58,19 @@ fn load_db() -> RwLock<UserMapStruct> {
 ///BE CAREFUL TO ONLY CALL THIS WHEN YOU DON'T OWN USER_MAP's LOCK!
 pub fn save_db() {
     std::thread::spawn(move || {
-        let lock = USER_MAP.read().unwrap();
-        if let Ok(stringify) = serde_json::to_string(&*lock) {
-            drop(lock);
+        if let Ok(lock) = USER_MAP.read() {
+            if let Ok(stringify) = serde_json::to_string(&*lock) {
+                drop(lock);
 
-            let result = std::fs::write(SAVE_LOC, &stringify);
-            println!("{:?}", result);
-        };
+                let result = std::fs::write(SAVE_LOC, &stringify);
+                println!("{:?}", result);
+            };
+        }
     });
 }
 
 pub fn list_vars(user: &str) -> Option<String> {
-    let lock = USER_MAP.read().unwrap();
+    let lock = USER_MAP.read().ok()?;
     let user = (*lock).get(user)?;
     let ch = user.vars.get(&user.current_char)?;
 
@@ -77,36 +78,36 @@ pub fn list_vars(user: &str) -> Option<String> {
         Some(String::from("You've got no defined variables"))
     } else {
         let mut keys = ch.keys();
-        let mut s = keys.next().unwrap().to_string();//len>0 means safe unwrap
+        let mut s = keys.next()?.to_string();
         for k in keys { s += &format!(", {}", k); }
         Some(s)
     }
 }
 
-pub fn list_chars(user: String) -> String {
-    let lock = USER_MAP.read().unwrap();
-    let user = (*lock).get(&user).unwrap();
+pub fn list_chars(user: String) -> Option<String> {
+    let lock = USER_MAP.read().ok()?;
+    let user = (*lock).get(&user)?;
 
     if user.vars.is_empty() {
-        String::from("You've got no defined characters")
+        Some(String::from("You've got no defined characters"))
     } else {
         let mut keys = user.vars.keys();
-        let mut s = keys.next().unwrap().to_string();//len>0 means safe unwrap
+        let mut s = keys.next()?.to_string();
         for k in keys { s += &format!(", {}", k); }
-        s + &format!("\n    Current Character: {}", user.current_char)
+        Some(s + &format!("\n    Current Character: {}", user.current_char))
     }
 }
 
-pub fn set_cc(user: &str, cc: &str) -> String {
-    let mut lock = USER_MAP.write().unwrap();
-    let user = (*lock).get_mut(user).unwrap();
+pub fn set_cc(user: &str, cc: &str) -> Option<String> {
+    let mut lock = USER_MAP.write().ok()?;
+    let user = (*lock).get_mut(user)?;
 
     if user.vars.contains_key(cc) {
         user.current_char = cc.to_string();
         drop(lock);
         save_db();
-        format!("Switched to {}", cc)
-    } else { String::from("That Character doesn't seem to exist") }
+        Some(format!("Switched to {}", cc))
+    } else { Some(String::from("That Character doesn't seem to exist")) }
 }
 
 pub fn add_char(user: &str, name: &str) {
@@ -134,12 +135,12 @@ pub fn add_char(user: &str, name: &str) {
     save_db();
 }
 
-pub fn remove_char(user: &str, name: &str) -> String {
+pub fn remove_char(user: &str, name: &str) -> Option<String> {
     let name = name.to_lowercase();
-    let mut lock = USER_MAP.write().unwrap();
-    let user = (*lock).get_mut(user).unwrap();
-    let remove: bool = user.vars.contains_key(&name);
-    let switch_necessary: bool = user.current_char.eq(&name);
+    let mut lock = USER_MAP.write().ok()?;
+    let user = (*lock).get_mut(user)?;
+    let remove = user.vars.contains_key(&name);
+    let switch_necessary = user.current_char == name;
     let r = if remove {
         user.vars.remove(&name);
         if switch_necessary {
@@ -150,7 +151,7 @@ pub fn remove_char(user: &str, name: &str) -> String {
     } else { String::from("That character doesn't seem to exist") };
     drop(lock);
     save_db();
-    r
+    Some(r)
 }
 
 pub fn resolve(user: &str, v_name: &str) -> Option<String> {
@@ -180,11 +181,11 @@ pub fn set_var(user: &str, v_name: &str, value: &str) -> Option<()> {
     //});
 }
 
-pub fn remove_var(user: &str, v_name: &str) -> String {
+pub fn remove_var(user: &str, v_name: &str) -> Option<String> {
     let v_name = v_name.to_lowercase();
-    let mut lock = USER_MAP.write().unwrap();
-    let user = (*lock).get_mut(user).unwrap();
-    let ch = user.vars.get_mut(&user.current_char).unwrap();
+    let mut lock = USER_MAP.write().ok()?;
+    let user = (*lock).get_mut(user)?;
+    let ch = user.vars.get_mut(&user.current_char)?;
     let r = if ch.contains_key(&v_name) {
         ch.remove(&v_name);
         format!("Your variable {} has been cleared", v_name)
@@ -196,7 +197,7 @@ pub fn remove_var(user: &str, v_name: &str) -> String {
     };
     drop(lock);
     save_db();
-    r
+    Some(r)
 }
 
 pub fn valid_cc(u_name: &str) -> bool {

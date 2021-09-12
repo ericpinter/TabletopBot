@@ -56,9 +56,9 @@ fn char(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
 #[command]
 #[aliases(lc, lchar, listchars, charlist)]
 ///Lists the characters that you have defined.
-fn listchar(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+fn listchar(ctx: &mut Context, msg: &Message, _args: Args) -> CommandResult {
     let user = msg.author.id.0.to_string();
-    reply(ctx, msg, &list_chars(user))
+    reply(ctx, msg, &list_chars(user).ok_or("Command failed")?)
 }
 
 #[command]
@@ -67,7 +67,7 @@ fn listchar(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
 ///Takes a name and attempts to switch to that character.
 fn switch(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     let user = msg.author.id.0.to_string();
-    reply(ctx, msg, &set_cc(&user, &args.rest()))
+    reply(ctx, msg, &set_cc(&user, &args.rest()).ok_or("Command failed")?)
 }
 
 
@@ -77,7 +77,7 @@ fn switch(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
 ///Takes a name and attempts to delete that character.
 fn delchar(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     let user = msg.author.id.0.to_string();
-    reply(ctx, msg, &remove_char(&user, &args.rest()))
+    reply(ctx, msg, &remove_char(&user, &args.rest()).ok_or("Command failed")?)
 }
 
 //TODO help command?
@@ -131,7 +131,7 @@ struct General;
 #[name(valid_current_character)]
 fn valid_current_character(_: &mut Context, msg: &Message, _: &mut Args, _: &CommandOptions) -> CheckResult {
     let user = msg.author.id.0.to_string();
-    if valid_cc(&user) { CheckResult::Success } else { CheckResult::Failure(Reason::User(String::from("It seems you do not have a valid current character_based. Use the !char command to make a new one or !switch to switch to one you already have."))) }
+    if valid_cc(&user) { CheckResult::Success } else { CheckResult::Failure(Reason::User(String::from("It seems you do not have a valid current CharacterBased. Use the !char command to make a new one or !switch to switch to one you already have."))) }
 }
 
 #[command]
@@ -160,7 +160,7 @@ fn assign(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
 #[command]
 #[aliases(l)]
 ///Lists the variables you have defined in the current character
-fn list(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+fn list(ctx: &mut Context, msg: &Message, _args: Args) -> CommandResult {
     let user = msg.author.id.0.to_string();
     reply(ctx, msg, &list_vars(&user).ok_or("Vars not found")?)
 }
@@ -230,7 +230,7 @@ fn inchar(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     if let Some(guild) = msg.guild(&ctx.cache) {
         let icon_url =
             match guild.read().emojis.values().find(|e| { e.name == out }) {
-                //try and find a custom emoji named after their character_based
+                //try and find a custom emoji named after their CharacterBased
                 Some(icon) => { icon.url() }
                 None => {
                     //otherwise try to just make it their avatar
@@ -258,7 +258,7 @@ fn inchar(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
 #[group]
 #[commands(assign, list, value, rename, inchar)]
 #[checks(valid_current_character)]
-struct character_based;
+struct CharacterBased;
 
 struct Handler;
 
@@ -277,14 +277,6 @@ fn help(
     help_commands::with_embeds(context, msg, args, help_options, groups, owners)
 }
 
-fn to_result<T>(o: Option<T>, s: String) -> Result<T, String> {
-    match o {
-        Some(t) => { Ok(t) }
-        None => { Err(s) }
-    }
-}
-
-
 fn port_character(user: &str, num: &str) -> Result<String, String> {
     if regex::Regex::new(r"^[0-9]+$").expect("Regex failed").is_match(num) {
         let url = format!("https://www.myth-weavers.com/api/v1/sheets/sheets/{}", num);
@@ -298,7 +290,7 @@ fn port_character(user: &str, num: &str) -> Result<String, String> {
         let map = map_val.as_object().ok_or("Map")?;
 
         let char_name = map.get("Name").expect("Name not found").as_str().ok_or("finding char_name")?;
-        println!("Making a character_based named {}", char_name);
+        println!("Making a CharacterBased named {}", char_name);
         add_char(user, char_name);
 
         match sheet_template {
@@ -322,7 +314,7 @@ fn port_35e(user: &str, m: &serde_json::Map<String, serde_json::Value>) -> Resul
     println!("Starting the port!");
     let set = |k: &str, v: &str| set_var(user, &format!("${}", k), &format!("d20{}{}", if v.parse::<i64>().unwrap() >= 0 { "+" } else { "" }, v));
 
-    let skill_regex = regex::Regex::new("^Skill[0-9]{2}$").expect("Wrong RegEx");
+    let skill_regex = regex::Regex::new("^Skill[0-9]{2}$").unwrap();
     //port over all skills
     for (k, v) in m.iter() {
         if skill_regex.is_match(k) {
@@ -349,7 +341,7 @@ fn port_35e(user: &str, m: &serde_json::Map<String, serde_json::Value>) -> Resul
 }
 
 //TODO
-fn port_sf(user: &str, m: &serde_json::Map<String, serde_json::Value>) {}
+fn port_sf(_user: &str, _m: &serde_json::Map<String, serde_json::Value>) {}
 
 
 //sends the given string as a reply to the user, with a mention to them included
@@ -372,7 +364,7 @@ fn main() {
     client.with_framework(StandardFramework::new()
         .configure(|c| c.prefix("!")
             .case_insensitivity(true))
-        .group(&GENERAL_GROUP).group(&CHARACTER_BASED_GROUP)
+        .group(&GENERAL_GROUP).group(&CHARACTERBASED_GROUP)
         .on_dispatch_error(|ctx, msg, err| {
             reply(ctx, msg, &format!("Error {:?} while executing that command", err));
         })
