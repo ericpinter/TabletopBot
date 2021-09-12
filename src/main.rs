@@ -29,6 +29,7 @@ use std::time::Instant;
 use serenity::http::CacheHttp;
 use std::collections::HashSet;
 use serenity::model::id::UserId;
+use crate::parser::is_valid;
 
 #[command]
 #[num_args(1)]
@@ -39,7 +40,7 @@ fn port(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     let id = args.current().unwrap();
     let user = msg.author.id.0.to_string();
     let response = port_character(&user, &id);
-    reply(ctx, msg, &response)
+    reply(ctx, msg, &response.unwrap_or_else(|s| s))
 }
 
 #[command]
@@ -128,7 +129,7 @@ struct General;
 
 #[check]
 #[name(valid_current_character)]
-fn valid_current_character(ctx: &mut Context, msg: &Message, args: &mut Args, op: &CommandOptions) -> CheckResult {
+fn valid_current_character(_: &mut Context, msg: &Message, _: &mut Args, _: &CommandOptions) -> CheckResult {
     let user = msg.author.id.0.to_string();
     if valid_cc(&user) { CheckResult::Success } else { CheckResult::Failure(Reason::User(String::from("It seems you do not have a valid current character_based. Use the !char command to make a new one or !switch to switch to one you already have."))) }
 }
@@ -145,10 +146,12 @@ fn assign(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     let response = if regex::Regex::new(r"\$[[a-zA-Z]\d_()]").unwrap().is_match(&var) {
         args.advance();
         let exp = args.rest();
-        //TODO test exp with grammar
-
-        set_var(&user, &var, &exp);
-        "Assigned!"
+        if is_valid(&exp) {
+            set_var(&user, &var, &exp);
+            "Assigned!"
+        } else {
+            "The given expression was invalid"
+        }
     } else { "Please start all vars with $, and use only a-z A-Z _ 0-9 and () in the variable's name" };
     reply(ctx, msg, response)
 }
@@ -274,41 +277,48 @@ fn help(
     help_commands::with_embeds(context, msg, args, help_options, groups, owners)
 }
 
+fn to_result<T>(o: Option<T>, s: String) -> Result<T, String> {
+    match o {
+        Some(t) => { Ok(t) }
+        None => { Err(s) }
+    }
+}
 
-fn port_character(user: &str, num: &str) -> String {
+
+fn port_character(user: &str, num: &str) -> Result<String, String> {
     if regex::Regex::new(r"^[0-9]+$").expect("Regex failed").is_match(num) {
         let url = format!("https://www.myth-weavers.com/api/v1/sheets/sheets/{}", num);
-        let response = reqwest::blocking::get(&url).expect("Request failed");
-        let json: serde_json::Value = response.json().expect("Request worked, but the given sheet has no json");
+        let response = reqwest::blocking::get(&url).ok().ok_or("Request failed")?;
+        let json: serde_json::Value = response.json().ok().ok_or("Request worked, but the given sheet has no json")?;
         //Mythweavers formats their data like this, don't blame me for the mess
-        let sheet_template = json["sheetdata"]["sheet_template_id"].as_u64().expect("Failed to find template");
+        let sheet_template = json["sheetdata"]["sheet_template_id"].as_u64().ok_or("Failed to find template")?;
 
-        let map_str = json["sheetdata"]["sheet_data"]["jsondata"].as_str().expect("Failed to traverse json");
-        let map: serde_json::Value = serde_json::from_str(map_str).expect("failed to parse nested json");
-        let map = map.as_object().expect("Map");
+        let map_str = json["sheetdata"]["sheet_data"]["jsondata"].as_str().ok_or("Failed to traverse json")?;
+        let map_val: serde_json::Value = serde_json::from_str(map_str).ok().ok_or("failed to parse nested json")?;
+        let map = map_val.as_object().ok_or("Map")?;
 
-        let char_name = map.get("Name").expect("Name not found").as_str().expect("finding char_name");
+        let char_name = map.get("Name").expect("Name not found").as_str().ok_or("finding char_name")?;
         println!("Making a character_based named {}", char_name);
         add_char(user, char_name);
 
         match sheet_template {
             11 => {
-                port_35e(user, map);
-                list_vars(user).unwrap()
+                port_35e(user, map)?;
+                list_vars(user).ok_or("Failed to summarize character".into())
             }
             43 => {
                 port_sf(user, map);
-                list_vars(user).unwrap()
+                list_vars(user).ok_or("Failed to summarize character".into())
             }
             other => {
-                println!("Failed to port {:?}", other);
-                String::from("Are you sure that this is a sheet of the right type? It may not be supported at the moment")
+                println!("Failed to port sheet of type {:?}", other);
+                Err(format!("Are you sure that this is a sheet of the right type? Type number {} may not be supported at the moment", other))
             }
         }
-    } else { String::from("Please make sure you have only the number at the end of your mw sheet in this command") }
+    } else { Err(String::from("Please make sure you have only the number at the end of your mw sheet in this command")) }
 }
 
-fn port_35e(user: &str, m: &serde_json::Map<String, serde_json::Value>) {
+fn port_35e(user: &str, m: &serde_json::Map<String, serde_json::Value>) -> Result<(), String> {
     println!("Starting the port!");
     let set = |k: &str, v: &str| set_var(user, &format!("${}", k), &format!("d20{}{}", if v.parse::<i64>().unwrap() >= 0 { "+" } else { "" }, v));
 
@@ -316,25 +326,26 @@ fn port_35e(user: &str, m: &serde_json::Map<String, serde_json::Value>) {
     //port over all skills
     for (k, v) in m.iter() {
         if skill_regex.is_match(k) {
-            let q = m.get(&format!("{}Mod", k)).expect("Mod not found");
-            set(&v.as_str().unwrap().replace(" ", "").replace("(", "-").replace(")", ""), q.as_str().unwrap());
+            let q = m.get(&format!("{}Mod", k)).ok_or("Mod not found")?;
+            set(&v.as_str().ok_or("Type error")?.replace(" ", "").replace("(", "-").replace(")", ""), q.as_str().ok_or("Type error")?);
         }
     }
-    let get_value = |v_name: &str| { m.get(v_name).unwrap().as_str().unwrap() };
+    let get_value = |v_name: &str| { m.get(v_name).ok_or("Missing Value")?.as_str().ok_or("Type error") };
 
     //Then do all of the attributes and values which are otherwise useful
-    set("reflex", get_value("Reflex"));
-    set("str", get_value("StrMod"));
-    set("dex", get_value("DexMod"));
-    set("con", get_value("ConMod"));
-    set("int", get_value("IntMod"));
-    set("wis", get_value("WisMod"));
-    set("cha", get_value("ChaMod"));
-    set("init", get_value("Init"));
-    set("fort", get_value("Fort"));
-    set("will", get_value("Will"));
+    set("reflex", get_value("Reflex")?);
+    set("str", get_value("StrMod")?);
+    set("dex", get_value("DexMod")?);
+    set("con", get_value("ConMod")?);
+    set("int", get_value("IntMod")?);
+    set("wis", get_value("WisMod")?);
+    set("cha", get_value("ChaMod")?);
+    set("init", get_value("Init")?);
+    set("fort", get_value("Fort")?);
+    set("will", get_value("Will")?);
 
     println!("finished porting");
+    Ok(())
 }
 
 //TODO

@@ -156,9 +156,9 @@ impl ArithmeticParser {
                     nums.sort();
                     let sum: u64 = nums.iter().rev().take(k as usize).sum();
                     //todo make unwrapped here use the individual rolls, with strike-throughs
-                    let summary = nums.iter().enumerate().map(|(ind,val)|if ind < (x - k) as usize {strikethrough(val.to_string())} else {val.to_string()}).collect::<Vec<String>>().join(" + ");
+                    let summary = nums.iter().enumerate().map(|(ind, val)| if ind < (x - k) as usize { strikethrough(val.to_string()) } else { val.to_string() }).collect::<Vec<String>>().join(" + ");
 
-                    Ok(Calculation::new(sum as f64, format!("{}d{}k{}", x, y, k), format!("({})",summary)))
+                    Ok(Calculation::new(sum as f64, format!("{}d{}k{}", x, y, k), format!("({})", summary)))
                 }
 
                 Rule::Var => {
@@ -291,9 +291,9 @@ fn as_slice<P, T, const N: usize>(mut pairs: P) -> Result<[T; N], String> where 
 }
 
 ///simple loop to strike out all the characters in a string. Probably horribly inefficient for large strings because of the allocating but fine in this use case where we only use it for numbers (maybe 20 significant digits)
-fn strikethrough(s:String) -> String {
+fn strikethrough(s: String) -> String {
     let mut strike = String::new();
-    strike.reserve(2*s.len());
+    strike.reserve(2 * s.len());
     let chars = s.chars();
     for c in chars {
         strike.push(c);
@@ -316,6 +316,6 @@ pub fn parse(user: String, s: &str) -> CalcResult {
     Ok(val)
 }
 
-pub fn is_valid(user: String, s: &str) -> bool {
+pub fn is_valid(s: &str) -> bool {
     ArithmeticParser::parse(Rule::Arithmetic, s).is_ok()
 }
