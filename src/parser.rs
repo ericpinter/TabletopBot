@@ -290,7 +290,7 @@ fn as_slice<P, T, const N: usize>(pairs: P) -> Result<[T; N], String> where P: I
     v.try_into().map_err(|_| "Failed conversion".into())
 }
 
-///simple loop to strike out all the characters in a string. Probably horribly inefficient for large strings because of the allocating but fine in this use case where we only use it for numbers (maybe 20 significant digits)
+//simple loop to strike out all the characters in a string. Probably horribly inefficient for large strings because of the allocating but fine in this use case where we only use it for numbers (maybe 20 significant digits)
 fn strikethrough(s: String) -> String {
     let mut strike = String::new();
     strike.reserve(2 * s.len());

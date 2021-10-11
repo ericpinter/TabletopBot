@@ -12,7 +12,7 @@ lazy_static! {
     pub static ref USER_MAP:RwLock<UserMapStruct>=load_db();
 }
 
-pub type UserMapStruct = HashMap<String, User>;//UserName -> (map of char names to (map of eqs.))
+pub type UserMapStruct = HashMap<String, User>;//This is effectively a 3D structure; UserName -> (map of char names to (map of eqs.))
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct User {
@@ -77,10 +77,7 @@ pub fn list_vars(user: &str) -> Option<String> {
     if ch.is_empty() {
         Some(String::from("You've got no defined variables"))
     } else {
-        let mut keys = ch.keys();
-        let mut s = keys.next()?.to_string();
-        for k in keys { s += &format!(", {}", k); }
-        Some(s)
+        Some(ch.keys().map(|s|s.to_owned()).collect::<Vec<String>>().join(", "))
     }
 }
 
@@ -94,7 +91,7 @@ pub fn list_chars(user: String) -> Option<String> {
         let mut keys = user.vars.keys();
         let mut s = keys.next()?.to_string();
         for k in keys { s += &format!(", {}", k); }
-        Some(s + &format!("\n    Current Character: {}", user.current_char))
+        Some(format!("{}\n    Current Character: {}", s, user.current_char))
     }
 }
 

@@ -1,4 +1,3 @@
-#![feature(result_flattening)]
 extern crate serenity;
 extern crate regex;
 extern crate pest;
