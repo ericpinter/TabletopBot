@@ -1,7 +1,6 @@
 use super::*;
 use rand::*;
 
-
 use self::Variable::*;
 use pest::pratt_parser::*;
 use pest::iterators::Pairs;
@@ -71,7 +70,6 @@ impl Display for Calculation {
     }
 }
 
-
 impl Calculation {
     fn new<T>(v: T, d: String, u: String) -> Calculation where T: Into<Variable> {
         Calculation { output: v.into(), defurled: d, unwrapped: u, nest_count:0, repeat_count:0 }
@@ -137,32 +135,6 @@ impl ArithmeticParser {
             Rule::power => { Ok(l.combine(r, lift(Box::new(|a,b|a.powf(b))))) }
             _ => unreachable!()
         }
-
-
-        /*
-        match (l.output, r.output) {
-            (Num(left), Num(right)) => {
-                let o = match op.as_rule() {
-                    Rule::add => { left + right }
-                    Rule::subtract => { left - right }
-                    Rule::multiply => { left * right }
-                    Rule::divide => { left / right }
-                    Rule::power => { left.powf(right) }
-                    _ => unreachable!()
-                };
-    
-                Ok(Calculation::new(o,
-                                    format!("{}{}{}", l.defurled, op.as_str(), r.defurled),
-                                    format!("{}{}{}", l.unwrapped, op.as_str(), r.unwrapped),
-                ))
-            }
-            (left, right) if op.as_rule() == Rule::add => {
-                Ok(Calculation::new(Text(format!("{}{}", left.into_string(), right.into_string())),
-                                    format!("{}{}{}", l.defurled, op.as_str(), r.defurled),
-                                    format!("{}{}{}", l.unwrapped, op.as_str(), r.unwrapped)))
-            }
-            _ => { Err("temp".into()) }
-        }*/
     }
     
     pub fn parse_primary(&self, pair: Pair<Rule>, pratt:&PrattParser<Rule>) -> CalcResult {
