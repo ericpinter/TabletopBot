@@ -3,7 +3,7 @@
 //perhaps I should switch to a real fast-hashmap implementation, but I had fun making this and until this code is actually serving hundreds of users a second (it won't ever be) it isn't worth it.
 use std::collections::HashMap;
 use std::fmt::Error;
-use std::sync::{RwLock, LockResult};
+use std::sync::{RwLock};
 use serde::{Deserialize, Serialize};
 
 const SAVE_LOC: &str = "./cmdList.json";
