@@ -35,38 +35,38 @@ use crate::parser::is_valid;
 ///Takes the myth-weavers id associated with a character sheet. This is the number at the end of the url when viewing the sheet.
 ///This command then ports the skills, and attributes associated with the given sheet into a character in this bot.
 ///Currently only 3.5 and starfinder sheets are supported, and not all information is ported.
-fn port(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+async fn port(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     let id = args.current().unwrap();
-    let user = msg.author.id.0.to_string();
+    let user = msg.author.id.to_string();
     let response = port_character(&user, &id);
-    reply(ctx, msg, &response.unwrap_or_else(|s| s))
+    reply(ctx, msg, &response.unwrap_or_else(|s| s)).await
 }
 
 #[command]
 #[min_args(1)]
 ///Takes a name and creates an empty character with that name.
-fn char(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
-    let user = msg.author.id.0.to_string();
+async fn char(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
+    let user = msg.author.id.to_string();
     let name = args.rest();
     add_char(&user, &name);
-    reply(ctx, msg, &format!("Created a char named: {} ", name))
+    reply(ctx, msg, &format!("Created a char named: {} ", name)).await
 }
 
 #[command]
 #[aliases(lc, lchar, listchars, charlist)]
 ///Lists the characters that you have defined.
-fn listchar(ctx: &mut Context, msg: &Message, _args: Args) -> CommandResult {
-    let user = msg.author.id.0.to_string();
-    reply(ctx, msg, &list_chars(user).ok_or("Command failed")?)
+async fn listchar(ctx: &Context, msg: &Message, _args: Args) -> CommandResult {
+    let user = msg.author.id.to_string();
+    reply(ctx, msg, &list_chars(user).ok_or("Command failed")?).await
 }
 
 #[command]
 #[aliases(setcc)]
 #[min_args(1)]
 ///Takes a name and attempts to switch to that character.
-fn switch(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
-    let user = msg.author.id.0.to_string();
-    reply(ctx, msg, &set_cc(&user, &args.rest()).ok_or("Command failed")?)
+async fn switch(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
+    let user = msg.author.id.to_string();
+    reply(ctx, msg, &set_cc(&user, &args.rest()).ok_or("Command failed")?).await
 }
 
 
@@ -74,9 +74,9 @@ fn switch(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
 #[aliases(del)]
 #[min_args(1)]
 ///Takes a name and attempts to delete that character.
-fn delchar(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
-    let user = msg.author.id.0.to_string();
-    reply(ctx, msg, &remove_char(&user, &args.rest()).ok_or("Command failed")?)
+async fn delchar(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
+    let user = msg.author.id.to_string();
+    reply(ctx, msg, &remove_char(&user, &args.rest()).ok_or("Command failed")?).await
 }
 
 //TODO help command?
@@ -94,15 +94,15 @@ fn delchar(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
 ///Two equality operators are defined. ($x = d30) would mean on each subsequent use of $x a new 30 sided die would be rolled. (d30 = $x) would store the result of a single roll and always use that value.
 ///The ternary operator (t ? [expression 1] : [expression 2]) returns the value [expression 1] if t is not zero. If it is zero it returns the value [expression 2]
 ///Just for added fun, variables can be referenced indirectly. For example storing "b" in $a and evaluating $($a) is equivalent to $b. This also works with ternary statements
-fn roll(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
-    let user = msg.author.id.0.to_string();
+async fn roll(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
+    let user = msg.author.id.to_string();
     let out = {
         match parse(user, args.rest()) {
             Ok(cal) => cal.output.to_string(),
             Err(e) => format!("ERROR!: {}", e)
         }
     };
-    reply(ctx, msg, &out)
+    reply(ctx, msg, &out).await
 }
 
 
@@ -110,15 +110,15 @@ fn roll(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
 #[aliases(re)]
 #[min_args(1)]
 ///Takes an expression and evaluates it, showing the steps of variable resolution and evaluation.
-fn roll_explicit(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
-    let user = msg.author.id.0.to_string();
+async fn roll_explicit(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
+    let user = msg.author.id.to_string();
     let out = match parse(user, args.rest()) {
         Ok(parse_result) => {
             format!("({}) → ({}) → {}", parse_result.defurled, parse_result.unwrapped, parse_result.output)
         }
         Err(_) => { String::from("Invalid Input") }
     };
-    reply(ctx, msg, &out)
+    reply(ctx, msg, &out).await
 }
 
 #[group]
@@ -128,9 +128,9 @@ struct General;
 
 #[check]
 #[name(valid_current_character)]
-fn valid_current_character(_: &mut Context, msg: &Message, _: &mut Args, _: &CommandOptions) -> CheckResult {
-    let user = msg.author.id.0.to_string();
-    if valid_cc(&user) { CheckResult::Success } else { CheckResult::Failure(Reason::User(String::from("It seems you do not have a valid current CharacterBased. Use the !char command to make a new one or !switch to switch to one you already have."))) }
+async fn valid_current_character(_: &Context, msg: &Message, _: &mut Args, _: &CommandOptions) -> Result<(),Reason> {
+    let user = msg.author.id.to_string();
+    if valid_cc(&user) { Ok(()) } else { Err(Reason::User(String::from("It seems you do not have a valid current CharacterBased. Use the !char command to make a new one or !switch to switch to one you already have."))) }
 }
 
 #[command]
@@ -138,8 +138,8 @@ fn valid_current_character(_: &mut Context, msg: &Message, _: &mut Args, _: &Com
 #[min_args(2)]
 ///Takes the name of a variable (prefixed with $) and a valid expression. The expression is then stored in the variable.
 ///Note that the expression is recalculated each time the variable is used, so !a $x [expr] is equivalent to !r $x = [expr].
-fn assign(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
-    let user = msg.author.id.0.to_string();
+async fn assign(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
+    let user = msg.author.id.to_string();
     let var = args.current().unwrap().to_owned();
 
     let response = if regex::Regex::new(r"\$[[a-zA-Z]\d_()]").unwrap().is_match(&var) {
@@ -152,16 +152,16 @@ fn assign(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
             "The given expression was invalid"
         }
     } else { "Please start all vars with $, and use only a-z A-Z _ 0-9 and () in the variable's name" };
-    reply(ctx, msg, response)
+    reply(ctx, msg, response).await
 }
 
 
 #[command]
 #[aliases(l)]
 ///Lists the variables you have defined in the current character
-fn list(ctx: &mut Context, msg: &Message, _args: Args) -> CommandResult {
-    let user = msg.author.id.0.to_string();
-    reply(ctx, msg, &list_vars(&user).ok_or("Vars not found")?)
+async fn list(ctx: &Context, msg: &Message, _args: Args) -> CommandResult {
+    let user = msg.author.id.to_string();
+    reply(ctx, msg, &list_vars(&user).ok_or("Vars not found")?).await
 }
 
 
@@ -169,8 +169,8 @@ fn list(ctx: &mut Context, msg: &Message, _args: Args) -> CommandResult {
 #[min_args(1)]
 #[aliases(v)]
 ///Takes the name of a variable (prefixed with $). Returns the raw (un-evaluated) value associated with that variable.
-fn value(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
-    let user = msg.author.id.0.to_string();
+async fn value(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
+    let user = msg.author.id.to_string();
     //TODO be wary of unwrapping and resolution before
     let name = args.rest();
     let val = match resolve(&user, name) {
@@ -178,15 +178,15 @@ fn value(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
         None => { String::from("Does not exist!") }
     };
 
-    reply(ctx, msg, &format!("{} : {}", name, val))
+    reply(ctx, msg, &format!("{} : {}", name, val)).await
 }
 
 
 #[command]
 #[min_args(2)]
 ///Takes two variable names (both prefixed with $). Reassigns the value in the first variable into the second, deleting the first.
-fn rename(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
-    let user = msg.author.id.0.to_string();
+async fn rename(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
+    let user = msg.author.id.to_string();
     let prev = args.current().unwrap().to_owned();
     args.advance();
     let next = args.rest();
@@ -201,7 +201,7 @@ fn rename(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
             format!("{} does not seem to exist", prev)
         }
     };
-    reply(ctx, msg, &response)
+    reply(ctx, msg, &response).await
 }
 
 
@@ -213,8 +213,8 @@ fn rename(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
 ///Defining the value $color (with a hexadecimal color code) lets you change the color on the left of the embed.
 ///The variable $character_emoji can assigned to the name of an emoji. The icon in the embedd will then be that emoji.
 ///Note that because these variables are a part of the roll evaluation system they should not be surrounded by quotes, unlike other text.
-fn inchar(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
-    let user = msg.author.id.0.to_string();
+async fn inchar(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
+    let user = msg.author.id.to_string();
     let out = match resolve(&user, "$character_emoji") {
         Some(s) => { s }
         None => { msg.author.name.clone() }
@@ -226,9 +226,9 @@ fn inchar(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
         } else { 123456 };
 
     //actually guaranteed by the only_in guilds flag
-    if let Some(guild) = msg.guild(&ctx.cache) {
+    if let Some(guild) = msg.guild(&ctx.cache).await {
         let icon_url =
-            match guild.read().emojis.values().find(|e| { e.name == out }) {
+            match guild.emojis.values().find(|e| { e.name == out }) {
                 //try and find a custom emoji named after their CharacterBased
                 Some(icon) => { icon.url() }
                 None => {
@@ -246,9 +246,9 @@ fn inchar(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
                     .author(|aut| aut.name(&out).icon_url(icon_url))
                     .color(color)
             })
-        });
+        }).await;
         println!("{:?}", result);
-        msg.delete(&ctx)?;
+        msg.delete(&ctx).await?;
     }
 
     Ok(())
@@ -265,15 +265,16 @@ impl EventHandler for Handler {}
 
 
 #[help]
-fn help(
-    context: &mut Context,
+async fn help(
+    context: &Context,
     msg: &Message,
     args: Args,
     help_options: &'static HelpOptions,
     groups: &[&'static CommandGroup],
     owners: HashSet<UserId>,
 ) -> CommandResult {
-    help_commands::with_embeds(context, msg, args, help_options, groups, owners)
+    help_commands::with_embeds(context, msg, args, help_options, groups, owners);
+    Ok(())
 }
 
 fn port_character(user: &str, num: &str) -> Result<String, String> {
@@ -345,35 +346,51 @@ fn port_sf(_user: &str, _m: &serde_json::Map<String, serde_json::Value>) {}
 
 //sends the given string as a reply to the user, with a mention to them included
 //TODO handle overlong messages more gracefully
-fn reply(ctx: &mut Context, msg: &Message, s: &str) -> CommandResult {
+async fn reply(ctx: &Context, msg: &Message, s: &str) -> CommandResult {
     let reply_time = Instant::now();
     let s = format!("{},\n{}", msg.author.mention(), s);
-    msg.channel_id.say(ctx.http(), s)?;
+    msg.channel_id.say(ctx.http(), s).await?;
 
     println!("replying alone took {} ms", reply_time.elapsed().as_millis());
     Ok(())
 }
 
-fn main() {
+
+#[hook]
+async fn unknown_command(ctx: &Context, msg: &Message, given_cmd: &str) {
+    println!("Could not find command named '{given_cmd}'");
+    reply(ctx, msg, &format!("The command {} was unrecognized", given_cmd)).await;
+}
+
+
+#[hook]
+async fn dispatch_error(ctx: &Context, msg: &Message, error: DispatchError) {
+    if let DispatchError::Ratelimited(info) = error {
+        // We notify them only once.
+        if info.is_first_try {
+            reply(ctx, msg, &format!("Try this again in {} seconds.", info.as_secs())).await;
+        }
+    }
+}
+
+
+#[tokio::main]
+async fn main() {
     let token = env::var("DISCORD_TOKEN")
         .expect("Expected a token in the environment");
 
-    let mut client = Client::new(&token, Handler).expect("Err creating client");
-
-    client.with_framework(StandardFramework::new()
+    let framework = StandardFramework::new()
         .configure(|c| c.prefix("!")
             .case_insensitivity(true))
         .group(&GENERAL_GROUP).group(&CHARACTERBASED_GROUP)
-        .on_dispatch_error(|ctx, msg, err| {
-            reply(ctx, msg, &format!("Error {:?} while executing that command", err));
-        })
-        .unrecognised_command(|ctx, msg, given_cmd| {
-            reply(ctx, msg, &format!("The command {} was unrecognized", given_cmd));
-        })
-        .help(&HELP)
-    );
+        .on_dispatch_error(dispatch_error)
+        .unrecognised_command(unknown_command)
+        .help(&HELP);
 
-    if let Err(e) = client.start() {
+
+    let mut client =  Client::builder(&token).event_handler(Handler).framework(framework).await.expect("Error Creating Client");    
+
+    if let Err(e) = client.start().await {
         println!("Client error: {:?}", e);
     }
     println!("Started");
